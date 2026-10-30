@@ -1,0 +1,17 @@
+# Virtual Environment
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets & Local Config
+.env
+
+# Local Data & Cache
+data/*
+!data/.gitkeep
+*.parquet
+*.csv
+
+# OS files
+Thumbs.db
+.DS_Store
