@@ -12,8 +12,11 @@
 * **`.venv` (Isolation):** Prevents dependency version conflicts between different projects and protects your operating system's base Python environment.
 * **`.gitignore` (Security & Cleanliness):** Prevents tracking gigabytes of virtual environment binaries, temporary data files (`*.parquet`), and secret credentials (`.env`).
 
-- **Grain:** In `orders`, one row represents a single checkout transaction placed by a customer at a specific point in time; in `order_items`, one row represents a single product line item (and its purchased quantity) belonging to that order.
+### The grain difference between orders (checkout transaction) and order_items (basket line item).
+In `orders`, one row represents a single checkout transaction placed by a customer at a specific point in time; in `order_items`, one row represents a single product line item (and its purchased quantity) belonging to that order.
 
-- **Deletions:** Master tables (e.g., `customers`, `products`) must avoid `ON DELETE CASCADE` because permanently deleting a parent record would trigger a chain reaction that erases historical sales receipts and audit trails; using a soft delete (`is_active = FALSE` or `deleted_at`) hides the entity from the customer-facing app while keeping historical transaction integrity and financial reports completely intact.
+### Why master records should not use ON DELETE CASCADE, and why production systems prefer soft deletes (is_active = FALSE).
+ Master tables (e.g., `customers`, `products`) must avoid `ON DELETE CASCADE` because permanently deleting a parent record would trigger a chain reaction that erases historical sales receipts and audit trails; using a soft delete (`is_active = FALSE` or `deleted_at`) hides the entity from the customer-facing app while keeping historical transaction integrity and financial reports completely intact.
 
-- **Indexing:** Incremental pipelines extract only newly created or updated records using queries like `WHERE created_at >= :watermark`; adding a B-Tree index on `created_at` prevents the database engine from executing a full-table disk scan on millions of past rows, enabling high-speed range lookups that fetch only the delta.
+### Why an index on the watermark column (created_at) is mandatory for high-volume incremental extraction.
+Incremental pipelines extract only newly created or updated records using queries like `WHERE created_at >= :watermark`; adding a B-Tree index on `created_at` prevents the database engine from executing a full-table disk scan on millions of past rows, enabling high-speed range lookups that fetch only the delta.
