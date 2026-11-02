@@ -164,5 +164,5 @@ def seed_products():
         conn.close()
 
 if __name__ == "__main__":
-    
+    seed_stores()
     seed_products()
