@@ -33,7 +33,7 @@ def seed_stores():
             "Mumbai",
             "400064",
         ),
-    ]
+    ] 
 
     insert_query = """
         INSERT INTO stores (store_name, address, city, zip_code)
@@ -54,5 +54,115 @@ def seed_stores():
         conn.close()
 
 
+def seed_products():
+    products = [
+    # Dairy & Breakfast
+    (
+        "Amul Taaza Homogenised Toned Milk 1L",
+        "Pasteurised toned milk with 3.0% fat and 8.5% SNF",
+        54.00,
+        "Dairy & Breakfast",
+        150,
+    ),
+    (
+        "Amul Salted Butter 500g",
+        "Rich, creamy butter made from fresh cream",
+        275.00,
+        "Dairy & Breakfast",
+        80,
+    ),
+    (
+        "Kellogg's Real Almond & Honey Corn Flakes 300g",
+        "Crispy toasted golden corn flakes with real honey and sliced almonds",
+        195.00,
+        "Dairy & Breakfast",
+        60,
+    ),
+    # Snacks & Munchies
+    (
+        "Lay's India's Magic Masala Potato Chips 50g",
+        "Spicy ridged potato chips seasoned with Indian spices",
+        20.00,
+        "Snacks & Munchies",
+        200,
+    ),
+    (
+        "Haldiram's Nagpur Bhujia Sev 400g",
+        "Crispy and spicy tepary bean and gram flour noodle snack",
+        115.00,
+        "Snacks & Munchies",
+        90,
+    ),
+    (
+        "Britannia Bourbon Chocolate Cream Biscuits 150g",
+        "Rich chocolate cream sandwiched between crunchy sugar-sprinkled biscuits",
+        35.00,
+        "Snacks & Munchies",
+        120,
+    ),
+    # Beverages
+    (
+        "Coca-Cola Original Taste 750ml",
+        "Refreshing and crisp carbonated soft drink",
+        40.00,
+        "Beverages",
+        110,
+    ),
+    (
+        "Tata Tea Gold 500g",
+        "Black tea blended with gently rolled aromatic long leaves",
+        310.00,
+        "Beverages",
+        70,
+    ),
+    (
+        "Paper Boat Aamras Mango Fruit Juice 250ml",
+        "Authentic sweet mango pulp beverage with no preservatives",
+        35.00,
+        "Beverages",
+        85,
+    ),
+    # Instant Food
+    (
+        "Maggi 2-Minute Masala Noodles 280g",
+        "Pack of 4 instant noodles with signature tastemaker masala",
+        56.00,
+        "Instant Food",
+        180,
+    ),
+    (
+        "Knorr Sweet Corn Veg Instant Soup 43g",
+        "Creamy sweet corn vegetable soup mix ready in minutes",
+        35.00,
+        "Instant Food",
+        95,
+    ),
+    (
+        "Yippee Magic Masala Noodles 240g",
+        "Non-sticky round block masala instant noodles",
+        48.00,
+        "Instant Food",
+        140,
+    ),
+]
+    insert_product_query = """
+    INSERT INTO products (product_name, description, price, category, stock_quantity)
+    VALUES (%s, %s, %s, %s, %s);
+"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.executemany(insert_product_query, products)
+        conn.commit()
+        print(f"Products seeded successfully! {len(products)} records inserted.")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error seeding products: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
 if __name__ == "__main__":
-    seed_stores()
+    
+    seed_products()
