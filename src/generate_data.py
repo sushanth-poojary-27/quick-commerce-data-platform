@@ -1,5 +1,9 @@
 from src.db import get_db_connection
+from  faker import Faker
 
+fake = Faker('en_IN')  # Use Indian locale for realistic data
+
+Faker.seed(42)
 
 def seed_stores():
     mumbai_stores = [
@@ -163,6 +167,37 @@ def seed_products():
         cur.close()
         conn.close()
 
+def seed_customers(num_customers=50):
+    customers = [
+        
+        (
+            fake.first_name(),
+            fake.last_name(),
+            fake.email(),
+            fake.phone_number(),
+            fake.address().replace("\n", ", "),
+        )
+        for _ in range(num_customers)
+    ]
+    insert_customer_query = """
+    INSERT INTO customers (first_name, last_name, email, phone_number, address)
+    VALUES (%s, %s, %s, %s, %s);
+"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.executemany(insert_customer_query, customers)
+        conn.commit()
+        print(f"Customers seeded successfully! {len(customers)} records inserted.")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error seeding customers: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
 if __name__ == "__main__":
-    seed_stores()
-    seed_products()
+    #seed_stores()
+    #seed_products()
+    #seed_customers()
