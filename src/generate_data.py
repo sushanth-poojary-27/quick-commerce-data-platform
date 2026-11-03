@@ -197,7 +197,37 @@ def seed_customers(num_customers=50):
         cur.close()
         conn.close()
 
+def seed_orders(num_orders=100):
+    conn = None
+    cur = None
+
+    try:
+       
+        conn = get_db_connection()
+        cur = conn.cursor()
+ 
+        cur.execute("SELECT customer_id FROM customers;")
+        customer_ids = [row[0] for row in cur.fetchall()]
+
+        cur.execute("SELECT store_id FROM stores;")
+        store_ids = [row[0] for row in cur.fetchall()]
+
+        cur.execute("SELECT product_id, price FROM products;")
+        products = cur.fetchall()
+
+        print(f"Loaded {len(customer_ids)} customers, {len(store_ids)} stores, {len(products)} products.")
+
+    except Exception as e:
+        print(f"Error fetching reference data: {e}")
+ 
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 if __name__ == "__main__":
     #seed_stores()
     #seed_products()
     #seed_customers()
+    seed_orders()
