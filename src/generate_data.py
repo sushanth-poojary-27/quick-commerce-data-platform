@@ -206,6 +206,17 @@ def seed_orders(num_orders=100):
     conn = None
     cur = None
 
+    insert_order_query = """
+        INSERT INTO orders (customer_id, store_id, total_amount, order_status, created_at, delivered_at)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING order_id;
+    """
+
+    insert_order_items_query = """
+        INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+        VALUES (%s, %s, %s, %s);
+    """
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -221,40 +232,65 @@ def seed_orders(num_orders=100):
 
         print(f"Loaded {len(customer_ids)} customers, {len(store_ids)} stores, {len(products)} products.")
 
-        # Test generation for 1 sample order basket
-        chosen_customer = random.choice(customer_ids)
-        chosen_store = random.choice(store_ids)
-        status = random.choices(["DELIVERED", "CANCELLED", "PLACED"], weights=[85, 10, 5], k=1)[0]
+        total_items_inserted = 0
 
-        created_at = datetime.now() - timedelta(days=random.randint(1, 13), minutes=random.randint(0, 1440))
+        for _ in range(num_orders):
+            chosen_customer = random.choice(customer_ids)
+            chosen_store = random.choice(store_ids)
+            status = random.choices(["DELIVERED", "CANCELLED", "PLACED"], weights=[85, 10, 5], k=1)[0]
 
-        if status == "DELIVERED":
-            delivered_at = created_at + timedelta(minutes=random.randint(8, 25))
-        else:
-            delivered_at = None
+            created_at = datetime.now() - timedelta(days=random.randint(1, 13), minutes=random.randint(0, 1440))
 
-        num_items = random.randint(1, 4)
-        basket_products = random.sample(products, k=num_items)
+            if status == "DELIVERED":
+                delivered_at = created_at + timedelta(minutes=random.randint(8, 25))
+            else:
+                delivered_at = None
 
-        basket_items = []
-        total_amount = 0.0
-        for prod_id, price in basket_products:
-            quantity = random.randint(1, 3)
-            item_cost = float(price) * quantity
-            total_amount += item_cost
-            basket_items.append((prod_id, quantity, float(price)))
+            # 1 to 4 distinct items per order
+            num_items = random.randint(1, 4)
+            basket_products = random.sample(products, k=num_items)
 
-        print("\n--- Sample Generated Order ---")
-        print(f"Customer ID : {chosen_customer}")
-        print(f"Store ID    : {chosen_store}")
-        print(f"Status      : {status}")
-        print(f"Created At  : {created_at}")
-        print(f"Delivered At: {delivered_at}")
-        print(f"Total Amount: ₹{round(total_amount, 2)}")
-        print(f"Line Items  : {basket_items}")
+            # Pre-compute basket items and total amount
+            line_items_draft = []
+            order_total = 0.0
+            for prod_id, price in basket_products:
+                qty = random.randint(1, 3)
+                unit_price = float(price)
+                order_total += unit_price * qty
+                line_items_draft.append((prod_id, qty, unit_price))
+
+            # Step A: Insert parent order and capture the identity key
+            cur.execute(
+                insert_order_query,
+                (
+                    chosen_customer,
+                    chosen_store,
+                    round(order_total, 2),
+                    status,
+                    created_at,
+                    delivered_at,
+                ),
+            )
+            order_id = cur.fetchone()[0]
+
+            # Step B: Attach the captured order_id to all child line items
+            order_items_data = [
+                (order_id, prod_id, qty, unit_price)
+                for prod_id, qty, unit_price in line_items_draft
+            ]
+
+            # Step C: Batch insert line items for this order
+            cur.executemany(insert_order_items_query, order_items_data)
+            total_items_inserted += len(order_items_data)
+
+        # Single atomic commit for the entire batch
+        conn.commit()
+        print(f"Successfully seeded {num_orders} orders and {total_items_inserted} order items.")
 
     except Exception as e:
-        print(f"Error generating orders: {e}")
+        if conn:
+            conn.rollback()
+        print(f"Error seeding orders: {e}")
     finally:
         if cur:
             cur.close()
@@ -266,4 +302,4 @@ if __name__ == "__main__":
     # seed_stores()
     # seed_products()
     # seed_customers(50)
-    seed_orders()
+    seed_orders(100)
