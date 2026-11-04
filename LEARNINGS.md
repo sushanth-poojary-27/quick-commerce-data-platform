@@ -20,3 +20,8 @@ In `orders`, one row represents a single checkout transaction placed by a custom
 
 ### Why an index on the watermark column (created_at) is mandatory for high-volume incremental extraction.
 Incremental pipelines extract only newly created or updated records using queries like `WHERE created_at >= :watermark`; adding a B-Tree index on `created_at` prevents the database engine from executing a full-table disk scan on millions of past rows, enabling high-speed range lookups that fetch only the delta.
+
+
+- **`RETURNING order_id` vs `MAX()`**: Avoids race conditions in concurrent pipelines by returning the exact auto-generated identity for that statement, rather than relying on another lookup.
+- **Transaction Atomicity**: Keeping `conn.commit()` outside the loop ensures the entire batch is all-or-nothing; if one record fails, `conn.rollback()` prevents dirty, partial data from polluting the database.
+- **Financial Reconciliation Checks**: Verifying that `orders.total_amount` equals `SUM(quantity * unit_price)` in SQL guarantees source data consistency before building analytical models.
