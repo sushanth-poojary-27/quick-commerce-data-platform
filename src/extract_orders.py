@@ -32,7 +32,7 @@ def extract_orders_to_parquet():
         # 2. Write DataFrame to a compressed Parquet file using pyarrow
         df.to_parquet(output_path, engine="pyarrow", index=False)
 
-        file_size_kb = os.path.getsize(output_path) / 1024
+        file_size_kb = os.path.getsize(output_path) / 1024 # 1kb = 1024 bytes (bytes to kilobytes conversion)
         print(f"Successfully extracted {len(df)} orders to {output_path}")
         print(f"File size: {file_size_kb:.2f} KB")
 
