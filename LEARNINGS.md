@@ -25,3 +25,10 @@ Incremental pipelines extract only newly created or updated records using querie
 - **`RETURNING order_id` vs `MAX()`**: Avoids race conditions in concurrent pipelines by returning the exact auto-generated identity for that statement, rather than relying on another lookup.
 - **Transaction Atomicity**: Keeping `conn.commit()` outside the loop ensures the entire batch is all-or-nothing; if one record fails, `conn.rollback()` prevents dirty, partial data from polluting the database.
 - **Financial Reconciliation Checks**: Verifying that `orders.total_amount` equals `SUM(quantity * unit_price)` in SQL guarantees source data consistency before building analytical models.
+
+
+- **Batch Extraction Engine (`src/extract.py`)**: Implemented a generalized Table Registry pattern (`TABLES_TO_EXTRACT`) that dynamically queries PostgreSQL tables, writes compressed Parquet files, and logs extraction metrics (row counts, file sizes, runtimes).
+- **Bronze Layer Quality Gate**: Used DuckDB to run cross-file SQL assertions directly against raw Parquet files on disk, validating:
+  1. Financial reconciliation (`orders.total_amount` matches `order_items` line-item sums).
+  2. Primary key uniqueness (`COUNT(*) == COUNT(DISTINCT order_id)`).
+  3. Referential integrity (zero orphan foreign keys for `customer_id` and `store_id`).
