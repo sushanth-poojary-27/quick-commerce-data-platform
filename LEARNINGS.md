@@ -44,3 +44,8 @@
 - **Direct Parquet Execution**: Uses DuckDB to run cross-file validation queries directly on disk without standing up a database server or executing intermediate load steps.
 - **Structural Integrity**: Asserts primary key uniqueness (`COUNT(*) - COUNT(DISTINCT order_id) = 0`) and referential integrity (confirming zero orphaned `customer_id` or `store_id` foreign keys).
 - **Financial Integrity**: Confirms cross-file parity between `orders.parquet` and `order_items.parquet` to ensure zero data loss during file serialization.
+
+#### 12. Incremental State Tracking (`src/state.py` & `_state.json`)
+- **High-Watermark Pattern**: Storing the maximum `created_at` timestamp converts expensive full-table scans into targeted delta queries (`WHERE created_at > :watermark`).
+- **Data Time vs. Execution Time**: `last_watermark` tracks the source transaction timestamp, while `last_run_at` logs the script's UTC execution time for observability and pipeline lag monitoring.
+- **Per-Table State Isolation**: Scoping state by table key ensures independent watermarks, columns, and runtimes across multiple tables without state collisions.
