@@ -2,6 +2,7 @@ import os
 import time
 import pandas as pd
 from src.db import get_db_connection
+from src.state import get_last_watermark, update_watermark
 
 # Registry of tables to extract from PostgreSQL into Bronze Parquet files
 TABLES_TO_EXTRACT = [
@@ -13,16 +14,67 @@ TABLES_TO_EXTRACT = [
 ]
 
 
-def extract_table_to_parquet(table_name: str, output_dir: str, conn) -> dict:
-    """Extracts a single table from PostgreSQL and saves it as a Parquet file."""
+def build_extract_query(
+    table_name: str,
+    watermark_col: str | None = None,
+    watermark_val: str | None = None,
+) -> str:
+    """Constructs either an incremental delta query or a full snapshot query."""
+    if watermark_col and watermark_val:
+        return (
+            f"SELECT * FROM {table_name} "
+            f"WHERE {watermark_col} > '{watermark_val}' "
+            f"ORDER BY {watermark_col} ASC;"
+        )
+    return f"SELECT * FROM {table_name};"
+
+
+def extract_table_to_parquet(
+    table_name: str,
+    output_dir: str,
+    conn,
+    watermark_col: str | None = None,
+) -> dict:
+    """Extracts a table (full or incremental) and saves it as a Parquet file."""
     start_time = time.time()
     output_path = os.path.join(output_dir, f"{table_name}.parquet")
-    query = f"SELECT * FROM {table_name};"
 
+    # 1. Fetch watermark if column is configured
+    watermark_val = get_last_watermark(table_name) if watermark_col else None
+
+    # 2. Build and execute query
+    query = build_extract_query(table_name, watermark_col, watermark_val)
     df = pd.read_sql_query(query, conn)
-    df.to_parquet(output_path, engine="pyarrow", index=False)
-
     duration = round(time.time() - start_time, 2)
+
+    # 3. Guard against overwriting existing Parquet file with an empty delta
+    if len(df) == 0:
+        file_size_kb = (
+            round(os.path.getsize(output_path) / 1024, 2)
+            if os.path.exists(output_path)
+            else 0.0
+        )
+        return {
+            "table": table_name,
+            "rows": 0,
+            "size_kb": file_size_kb,
+            "duration_sec": duration,
+            "path": output_path,
+        }
+
+    # 4. Write data (append if existing file and delta run, else overwrite)
+    if os.path.exists(output_path) and watermark_val:
+        existing_df = pd.read_parquet(output_path)
+        combined_df = pd.concat([existing_df, df], ignore_index=True)
+        combined_df.to_parquet(output_path, engine="pyarrow", index=False)
+    else:
+        df.to_parquet(output_path, engine="pyarrow", index=False)
+
+    # 5. Advance watermark in state file
+    if watermark_col:
+        new_watermark = str(df[watermark_col].max())
+        update_watermark(table_name, watermark_col, new_watermark)
+
     file_size_kb = round(os.path.getsize(output_path) / 1024, 2)
 
     return {
