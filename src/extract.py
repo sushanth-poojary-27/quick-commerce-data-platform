@@ -5,12 +5,13 @@ from src.db import get_db_connection
 from src.state import get_last_watermark, update_watermark
 
 # Registry of tables to extract from PostgreSQL into Bronze Parquet files
-TABLES_TO_EXTRACT = [
-    "stores",
-    "products",
-    "customers",
-    "orders",
-    "order_items",
+# Registry of tables and extraction strategies
+TABLE_CONFIGS = [
+    {"table": "stores", "watermark_col": None},
+    {"table": "products", "watermark_col": None},
+    {"table": "customers", "watermark_col": None},
+    {"table": "orders", "watermark_col": "created_at"},
+    {"table": "order_items", "watermark_col": None},
 ]
 
 
@@ -99,8 +100,13 @@ def run_batch_extraction():
         print("Connected to PostgreSQL database.")
 
         summary = []
-        for table in TABLES_TO_EXTRACT:
-            result = extract_table_to_parquet(table, output_dir, conn)
+        for cfg in TABLE_CONFIGS:
+            result = extract_table_to_parquet(
+                table_name=cfg["table"],
+                output_dir=output_dir,
+                conn=conn,
+                watermark_col=cfg["watermark_col"],
+            )
             summary.append(result)
             print(
                 f"[✓] Extracted '{result['table']}': "
