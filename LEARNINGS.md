@@ -49,3 +49,8 @@
 - **High-Watermark Pattern**: Storing the maximum `created_at` timestamp converts expensive full-table scans into targeted delta queries (`WHERE created_at > :watermark`).
 - **Data Time vs. Execution Time**: `last_watermark` tracks the source transaction timestamp, while `last_run_at` logs the script's UTC execution time for observability and pipeline lag monitoring.
 - **Per-Table State Isolation**: Scoping state by table key ensures independent watermarks, columns, and runtimes across multiple tables without state collisions.
+
+#### 13. Hybrid Extraction Architecture (`src/extract.py`)
+- **Hybrid Extraction Registry (`TABLE_CONFIGS`)**: Configured per-table extraction strategies—full snapshot refreshes (`watermark_col: None`) for dimension tables and incremental deltas (`watermark_col: "created_at"`) for append-heavy transaction tables.
+- **Empty-Delta Guardrails**: Implemented an explicit guard clause on `len(df) == 0` to prevent scheduled pipeline runs from overwriting existing Parquet files with 0-byte/empty datasets during idle windows.
+- **Delta Concatenation & Ingestion**: Implemented Parquet append logic (`pd.concat([existing_df, df])`) to merge incoming delta slices into Bronze Parquet storage while advancing the high watermark to `max(created_at)`.
