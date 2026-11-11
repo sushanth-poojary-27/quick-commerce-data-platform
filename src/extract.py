@@ -7,11 +7,11 @@ from src.state import get_last_watermark, update_watermark
 # Registry of tables to extract from PostgreSQL into Bronze Parquet files
 # Registry of tables and extraction strategies
 TABLE_CONFIGS = [
-    {"table": "stores", "watermark_col": None},
-    {"table": "products", "watermark_col": None},
-    {"table": "customers", "watermark_col": None},
-    {"table": "orders", "watermark_col": "created_at"},
-    {"table": "order_items", "watermark_col": None},
+    {"table": "stores", "watermark_col": None, "pk": "store_id"},
+    {"table": "products", "watermark_col": None, "pk": "product_id"},
+    {"table": "customers", "watermark_col": None, "pk": "customer_id"},
+    {"table": "orders", "watermark_col": "created_at", "pk": "order_id"},
+    {"table": "order_items", "watermark_col": None, "pk": "order_item_id"},
 ]
 
 
@@ -35,6 +35,7 @@ def extract_table_to_parquet(
     output_dir: str,
     conn,
     watermark_col: str | None = None,
+    primary_key: str | None = None,
 ) -> dict:
     """Extracts a table (full or incremental) and saves it as a Parquet file."""
     start_time = time.time()
@@ -63,14 +64,14 @@ def extract_table_to_parquet(
             "path": output_path,
         }
 
-    # 4. Write data (append if existing file and delta run, else overwrite)
     if os.path.exists(output_path) and watermark_val:
         existing_df = pd.read_parquet(output_path)
         combined_df = pd.concat([existing_df, df], ignore_index=True)
+        if primary_key and primary_key in combined_df.columns:
+            combined_df = combined_df.drop_duplicates(subset=[primary_key], keep="last")
         combined_df.to_parquet(output_path, engine="pyarrow", index=False)
     else:
         df.to_parquet(output_path, engine="pyarrow", index=False)
-
     # 5. Advance watermark in state file
     if watermark_col:
         new_watermark = str(df[watermark_col].max())
@@ -106,6 +107,7 @@ def run_batch_extraction():
                 output_dir=output_dir,
                 conn=conn,
                 watermark_col=cfg["watermark_col"],
+                primary_key=cfg["pk"],
             )
             summary.append(result)
             print(
