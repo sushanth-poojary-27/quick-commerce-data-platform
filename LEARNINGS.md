@@ -54,3 +54,9 @@
 - **Hybrid Extraction Registry (`TABLE_CONFIGS`)**: Configured per-table extraction strategies—full snapshot refreshes (`watermark_col: None`) for dimension tables and incremental deltas (`watermark_col: "created_at"`) for append-heavy transaction tables.
 - **Empty-Delta Guardrails**: Implemented an explicit guard clause on `len(df) == 0` to prevent scheduled pipeline runs from overwriting existing Parquet files with 0-byte/empty datasets during idle windows.
 - **Delta Concatenation & Ingestion**: Implemented Parquet append logic (`pd.concat([existing_df, df])`) to merge incoming delta slices into Bronze Parquet storage while advancing the high watermark to `max(created_at)`.
+
+### 14. Pipeline Idempotency & Deduplication Guardrails (`src/extract.py`)
+- **Pipeline Idempotency**: Verified that back-to-back execution without new source data produces identical state without redundant writes or duplicate entries.
+- **In-Memory Primary Key Deduplication**: Enforced `drop_duplicates(subset=[primary_key], keep="last")` on merged DataFrames prior to Parquet serialization to prevent data drift during pipeline backfills or replay runs.
+- **Replay & Backfill Testing**: Simulated extraction recovery by manually rewinding watermarks in `_state.json`; confirmed the pipeline re-extracted historical records, stripped duplicate keys in RAM, and maintained file integrity.
+- **Automated Data Quality Audit**: Executed DuckDB audit queries against raw Bronze Parquet files to validate row counts, column counts, and zero null values on primary key constraints.
